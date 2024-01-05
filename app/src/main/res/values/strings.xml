@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">MemoWithTimeStamp</string>
+    <string name="nowDateSampleText">2024.01.03 (水)</string>
+    <string name="nowTimeSampleText">21:50:00</string>
+    <string name="gps_enable">位置</string>
+    <string name="map_view">現在位置を地図アプリで表示</string>
+    <string name="latitudeTypeSampleText">緯度: </string>
+    <string name="latitudeSampleText">00.00000</string>
+    <string name="longitudeTypeSampleText">経度: </string>
+    <string name="longitudeSampleText">000.00000</string>
+    <string name="btn_inserttimestamp">日時を挿入</string>
+    <string name="btn_insertpos">位置情報を挿入</string>
+    <string name="btn_save">メモを保存</string>
+    <string name="labelForMemoBody">メモ</string>
+    <string name="location_access_not_permitted">位置情報の利用が許可されていません</string>
+    <string name="default_save_filename">MemoWithLogStamp_memo.txt</string>
+    <string name="file_read_finished">ファイルを読み込みました。</string>
+    <string name="file_write_finished">ファイルへの書き込みが完了しました。</string>
+    <string name="file_access_not_allowed">ファイルの読み取り・書き込みが許可されていません。</string>
+</resources>
