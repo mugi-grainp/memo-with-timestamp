@@ -10,7 +10,6 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.provider.OpenableColumns
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -29,9 +28,9 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import java.io.BufferedReader
 import java.io.BufferedWriter
-import java.io.File
 import java.io.FileReader
 import java.io.FileWriter
+import java.io.OutputStreamWriter
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.time.LocalDateTime
@@ -82,7 +81,16 @@ class MainActivity : AppCompatActivity() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val resultUriIntent = result.data
-            _saveFileUri = resultUriIntent?.data
+            val savefilePath = resultUriIntent?.data
+
+            savefilePath?.let {
+                exportMemoToFile(it)
+                _saveFileUri = it
+                // 上書きエクスポートボタンの有効化
+                val btnOverwriteExport = findViewById<Button>(R.id.btnOverwriteExport)
+                btnOverwriteExport.isEnabled = true
+                btnOverwriteExport.setBackgroundColor(getColor(R.color.red))
+            }
         }
     }
 
@@ -126,14 +134,20 @@ class MainActivity : AppCompatActivity() {
         // 各ボタンにイベントリスナを登録
         val btnInsertTimestamp = findViewById<Button>(R.id.btnInsertTimestamp)
         val btnInsertPos = findViewById<Button>(R.id.btnInsertPos)
-        val btnExport = findViewById<Button>(R.id.btnExport)
+        val btnNewExport = findViewById<Button>(R.id.btnNewExport)
+        val btnOverwriteExport = findViewById<Button>(R.id.btnOverwriteExport)
         val btnMapView = findViewById<Button>(R.id.btnViewCurrentPosOnMap)
         val buttonListener = ButtonListener()
 
         btnInsertTimestamp.setOnClickListener(buttonListener)
         btnInsertPos.setOnClickListener(buttonListener)
-        btnExport.setOnClickListener(buttonListener)
+        btnNewExport.setOnClickListener(buttonListener)
+        btnOverwriteExport.setOnClickListener(buttonListener)
         btnMapView.setOnClickListener(buttonListener)
+
+        // 上書きエクスポートボタンは初期値で無効化
+        btnOverwriteExport.isEnabled = false
+        btnOverwriteExport.setBackgroundColor(getColor(R.color.gray))
 
         // チェックボックスにイベントリスナを登録
         val chkGPSEnable = findViewById<CheckBox>(R.id.gpsEnable)
@@ -186,8 +200,11 @@ class MainActivity : AppCompatActivity() {
                     val memoBodyCursorEnd = memoBody.selectionEnd
                     memoBody.text.insert(memoBodyCursorEnd, posText)
                 }
-                R.id.btnExport -> {
-                    exportMemoToFile()
+                R.id.btnNewExport -> {
+                    selectAndExportMemoToFile()
+                }
+                R.id.btnOverwriteExport -> {
+                    _saveFileUri?.let { uri -> exportMemoToFile(uri) }
                 }
             }
         }
@@ -333,49 +350,36 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    // エクスポート先を選択し、メモを書き出す（新規作成）
+    private fun selectAndExportMemoToFile() {
+        // デフォルトのファイル名を生成
+        val nowDateTime = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHMMSS")
+        val dateTimeString = nowDateTime.format(formatter)
+        _saveFileName = getString(R.string.default_save_filename_prefix) + "_" + dateTimeString + ".txt"
+
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "text/plain"
+        intent.putExtra(Intent.EXTRA_TITLE, _saveFileName)
+
+        newFileSaveLauncher.launch(intent)
+    }
+
     // ファイルに保存する
-    private fun exportMemoToFile() {
-        if (_saveFileName.isEmpty()) {
-            // デフォルトのファイル名を生成
-            val nowDateTime = LocalDateTime.now()
-            val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHMMSS")
-            val dateTimeString = nowDateTime.format(formatter)
-            _saveFileName = "${R.string.default_save_filename_prefix}_${dateTimeString}.txt"
+    private fun exportMemoToFile(fileUri : Uri) {
+        val contentResolver = applicationContext.contentResolver
 
-            if (_saveFileUri == null) {
-                // ファイル保存先URIが設定されていない場合はファイル保存先指定のためのアクティビティ起動
-                // ファイルの存在により新規作成するか追記するかを選ぶ
-                // 新規作成の場合
-                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
-                intent.addCategory(Intent.CATEGORY_OPENABLE)
-                intent.type = "text/plain"
-                intent.putExtra(Intent.EXTRA_TITLE, _saveFileName)
+        contentResolver.openOutputStream(fileUri)?.use { outputStream ->
+            BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+                val memoBody = findViewById<EditText>(R.id.memoBody)
+                val memoText = memoBody.text
+                writer.append(memoText)
+                writer.newLine()
 
-                newFileSaveLauncher.launch(intent)
-
-                _saveFileUri?.let {
-                    contentResolver.query(it, null, null, null, null)
-                }?.use { cursor ->
-                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    _saveFileName = cursor.getString(nameIndex)
-                }
+                // 書き込み完了のトースト表示
+                Toast.makeText(this@MainActivity, R.string.memo_export_finished, Toast.LENGTH_LONG).show()
             }
-        }
-
-        // ファイル保存処理（Uri）
-        _saveFileUri?.let {
-            val file = it.path?.let { it1 -> File(it1) }
-
-            val bwriter = BufferedWriter(FileWriter(file, false))
-            val memoBody = findViewById<EditText>(R.id.memoBody)
-            val memoText = memoBody.text
-
-            bwriter.append(memoText)
-            bwriter.newLine()
-            bwriter.close()
-
-            // 書き込み完了のトースト表示
-            Toast.makeText(this@MainActivity, R.string.memo_export_finished, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -391,7 +395,11 @@ class MainActivity : AppCompatActivity() {
             val data = breader.readText()
             val memoBody = findViewById<EditText>(R.id.memoBody)
             memoBody.setText(data)
-            memoBody.setSelection(memoBody.text.length)
+            memoBody.setSelection(memoBody.text.length - 1)
+
+            // テキストボックスへデータを入れた時に変更済みイベントが発生するが、
+            // メモ本体のテキストボックス内容が更新されていない扱いとする
+            memoModified = false
 
             // 読み込み完了のトースト表示
             Toast.makeText(this@MainActivity, R.string.file_autoload_finished, Toast.LENGTH_SHORT).show()
@@ -419,9 +427,10 @@ class MainActivity : AppCompatActivity() {
         // 読み書き可能、かつ自動保存の必要があるかを判定
         if (writable) {
             if (memoModified) {
-                val path = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
+                val dirpath = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
+                val filepath = dirpath + getString(R.string.default_save_filename)
                 val bwriter =
-                    BufferedWriter(FileWriter("${path}/${R.string.default_save_filename}", false))
+                    BufferedWriter(FileWriter(filepath, false))
                 val memoBody = findViewById<EditText>(R.id.memoBody)
                 val memoText = memoBody.text
 
@@ -432,12 +441,11 @@ class MainActivity : AppCompatActivity() {
                 // メモ本体のテキストボックス内容が更新されていない扱いとする
                 memoModified = false
                 // 書き込み完了のトースト表示
-                Toast.makeText(this@MainActivity, R.string.file_autosave_finished, Toast.LENGTH_LONG).show()
+                // Toast.makeText(this@MainActivity, R.string.file_autosave_finished, Toast.LENGTH_LONG).show()
             }
         } else {
             // ストレージアクセス権限がない旨のトースト表示
             Toast.makeText(this@MainActivity, R.string.could_not_autosave, Toast.LENGTH_SHORT).show()
         }
     }
-
 }
