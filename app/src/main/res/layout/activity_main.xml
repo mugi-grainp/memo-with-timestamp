@@ -117,18 +117,16 @@
             android:id="@+id/btnInsertTimestamp"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:layout_marginEnd="4dp"
+            android:layout_weight="1"
             android:backgroundTint="@color/gold"
-            android:textColor="@color/black"
             android:text="@string/btn_inserttimestamp"
+            android:textColor="@color/black"
             android:textSize="18sp"
-            style="?android:attr/buttonBarButtonStyle"
-            tools:ignore="VisualLintButtonSize" />
+            tools:ignore="ButtonStyle,VisualLintButtonSize" />
 
         <Button
             android:id="@+id/btnInsertPos"
-            style="?android:attr/buttonBarButtonStyle"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="4dp"
@@ -137,7 +135,7 @@
             android:text="@string/btn_insertpos"
             android:textColor="@color/white"
             android:textSize="18sp"
-            tools:ignore="TextContrastCheck,VisualLintButtonSize" />
+            tools:ignore="ButtonStyle,TextContrastCheck,VisualLintButtonSize" />
     </LinearLayout>
 
     <EditText
