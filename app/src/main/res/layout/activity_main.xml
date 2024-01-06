@@ -63,7 +63,7 @@
             android:layout_weight="1"
             android:background="#FFFFFF"
             android:text="@string/latitudeSampleText"
-            android:gravity="right"
+            android:gravity="end"
             android:textSize="20sp" />
 
         <Space
@@ -92,7 +92,7 @@
             android:layout_weight="1"
             android:background="#FFFFFF"
             android:text="@string/longitudeSampleText"
-            android:gravity="right"
+            android:gravity="end"
             android:textSize="20sp" />
     </LinearLayout>
 
@@ -133,16 +133,6 @@
             android:textSize="18sp" />
     </LinearLayout>
 
-    <Button
-        android:id="@+id/btnSave"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:layout_marginBottom="4dp"
-        android:text="@string/btn_save"
-        android:backgroundTint="@color/royalblue"
-        android:textSize="20sp" />
-
     <EditText
         android:id="@+id/memoBody"
         android:layout_width="match_parent"
@@ -151,7 +141,17 @@
         android:layout_weight="1"
         android:padding="8dp"
         android:background="#FFFFFF"
-        android:gravity="top|left"
+        android:gravity="top|start"
         android:inputType="textMultiLine" />
+
+    <Button
+        android:id="@+id/btnExport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:layout_marginLeft="4dp"
+        android:text="@string/btn_export"
+        android:backgroundTint="@color/royalblue"
+        android:textSize="20sp" />
 
 </LinearLayout>

@@ -11,10 +11,15 @@
     <string name="btn_inserttimestamp">日時を挿入</string>
     <string name="btn_insertpos">位置情報を挿入</string>
     <string name="btn_save">メモを保存</string>
+    <string name="btn_export">エクスポート</string>
     <string name="labelForMemoBody">メモ</string>
     <string name="location_access_not_permitted">位置情報の利用が許可されていません</string>
     <string name="default_save_filename">MemoWithLogStamp_memo.txt</string>
-    <string name="file_read_finished">ファイルを読み込みました。</string>
-    <string name="file_write_finished">ファイルへの書き込みが完了しました。</string>
+    <string name="default_save_filename_prefix">MemoWithLogStamp_memo</string>
+    <string name="memo_export_finished">メモのエクスポートが完了しました。</string>
     <string name="file_access_not_allowed">ファイルの読み取り・書き込みが許可されていません。</string>
+    <string name="file_autoload_finished">自動保存ファイルからメモを読み込みました。</string>
+    <string name="file_autosave_finished">メモを自動保存しました。</string>
+    <string name="could_not_autoload">自動保存ファイルからの読み込みができませんでした。</string>
+    <string name="could_not_autosave">自動保存ができませんでした。</string>
 </resources>

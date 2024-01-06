@@ -1,6 +1,7 @@
 package net.aotake91.memowithlogstamp
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -9,15 +10,17 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
+import android.provider.OpenableColumns
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
+import androidx.core.widget.doAfterTextChanged
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -30,8 +33,6 @@ import java.io.File
 import java.io.FileReader
 import java.io.FileWriter
 import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Path.of
 import java.nio.file.Paths
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -44,6 +45,14 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             getAndViewDateTimeText()
             handler.postDelayed(this, 1000)
+        }
+    }
+
+    // 自動保存タスク（30秒ごとに確認）
+    private val autoSaveTimer = object : Runnable {
+        override fun run() {
+            saveMemoToDefaultFile()
+            handler.postDelayed(this, 30000)
         }
     }
 
@@ -60,8 +69,22 @@ class MainActivity : AppCompatActivity() {
 
     // 保存ファイル名
     private var _saveFileName = ""
+    // 保存ファイル先Uri（ファイル名を含むパス全体）
+    private var _saveFileUri : Uri? = null
     // ストレージアクセス許可の有無
-    private var allowed_access_to_storage = false
+    private var allowedAccessToStorage = false
+    // メモ本体の入力ボックステキストが更新されたか
+    private var memoModified = false
+
+    // メモ保存先のUri取得（ファイル新規作成）
+    private val newFileSaveLauncher : ActivityResultLauncher<Intent> = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val resultUriIntent = result.data
+            _saveFileUri = resultUriIntent?.data
+        }
+    }
 
     // 位置情報更新時のコールバック
     private inner class OnUpdateLocation : LocationCallback() {
@@ -88,6 +111,12 @@ class MainActivity : AppCompatActivity() {
         // 日時更新を定期タスクとして登録
         handler.post(timer)
 
+        // メモ本体テキストボックス内容変更イベント処理を登録
+        val memoBody = findViewById<EditText>(R.id.memoBody)
+        memoBody.doAfterTextChanged {
+            memoModified = true
+        }
+
         // 位置情報関係オブジェクトの登録
         _fusedLocationClient = LocationServices.getFusedLocationProviderClient(this@MainActivity)
         val builder = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 1000)
@@ -97,13 +126,13 @@ class MainActivity : AppCompatActivity() {
         // 各ボタンにイベントリスナを登録
         val btnInsertTimestamp = findViewById<Button>(R.id.btnInsertTimestamp)
         val btnInsertPos = findViewById<Button>(R.id.btnInsertPos)
-        val btnSave = findViewById<Button>(R.id.btnSave)
+        val btnExport = findViewById<Button>(R.id.btnExport)
         val btnMapView = findViewById<Button>(R.id.btnViewCurrentPosOnMap)
         val buttonListener = ButtonListener()
 
         btnInsertTimestamp.setOnClickListener(buttonListener)
         btnInsertPos.setOnClickListener(buttonListener)
-        btnSave.setOnClickListener(buttonListener)
+        btnExport.setOnClickListener(buttonListener)
         btnMapView.setOnClickListener(buttonListener)
 
         // チェックボックスにイベントリスナを登録
@@ -115,8 +144,9 @@ class MainActivity : AppCompatActivity() {
         requestPermissionOfStorageReadWrite()
 
         // メモファイルのロード（存在する場合）
-        loadMemoFromFile()
-
+        loadMemoFromDefaultFile()
+        // 自動保存を定期タスクとして登録
+        handler.post(autoSaveTimer)
     }
 
     override fun onResume() {
@@ -133,6 +163,8 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         // 位置情報の計測を停止
         _fusedLocationClient.removeLocationUpdates(_onUpdateLocation)
+        // 現在のメモを内部ストレージに保存
+        saveMemoToDefaultFile()
     }
 
     // 各ボタンのイベントリスナ
@@ -154,8 +186,8 @@ class MainActivity : AppCompatActivity() {
                     val memoBodyCursorEnd = memoBody.selectionEnd
                     memoBody.text.insert(memoBodyCursorEnd, posText)
                 }
-                R.id.btnSave -> {
-                    saveMemoToFile()
+                R.id.btnExport -> {
+                    exportMemoToFile()
                 }
             }
         }
@@ -178,6 +210,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
 
     // 画面の日付・時刻表示を更新
     private fun getAndViewDateTimeText() {
@@ -286,7 +319,7 @@ class MainActivity : AppCompatActivity() {
             // ストレージ権限の許可
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED
                 && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-                allowed_access_to_storage = true
+                allowedAccessToStorage = true
             }
         }
     }
@@ -301,58 +334,39 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ファイルに保存する
-    private fun saveMemoToFile() {
+    private fun exportMemoToFile() {
         if (_saveFileName.isEmpty()) {
             // デフォルトのファイル名を生成
-            val path = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
-            // val nowDateTime = LocalDateTime.now()
-            // val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHMMSS")
-            // val dateTimeString = nowDateTime.format(formatter)
-            // _saveFileName = "${path}/${R.string.default_save_filename_prefix}_${dateTimeString}.txt"
+            val nowDateTime = LocalDateTime.now()
+            val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHMMSS")
+            val dateTimeString = nowDateTime.format(formatter)
+            _saveFileName = "${R.string.default_save_filename_prefix}_${dateTimeString}.txt"
 
-            _saveFileName = "${R.string.default_save_filename}"
-        }
+            if (_saveFileUri == null) {
+                // ファイル保存先URIが設定されていない場合はファイル保存先指定のためのアクティビティ起動
+                // ファイルの存在により新規作成するか追記するかを選ぶ
+                // 新規作成の場合
+                val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+                intent.addCategory(Intent.CATEGORY_OPENABLE)
+                intent.type = "text/plain"
+                intent.putExtra(Intent.EXTRA_TITLE, _saveFileName)
 
-        // 将来対応：外部ストレージへのファイル保存
-        // val launcher = registerForActivityResult(
-        //     ActivityResultContracts.CreateDocument("text/plain")
-        // ) { uri ->
-        //     Toast.makeText(this@MainActivity, "url=${uri}", Toast.LENGTH_LONG).show()
+                newFileSaveLauncher.launch(intent)
 
-        //     uri?.let {
-        //         _saveFileName = it.path.toString()
-        //         val file = it.path?.let { it1 -> File(it1) }
-
-        //         val bwriter = BufferedWriter(FileWriter(file, false))
-        //         val memoBody = findViewById<EditText>(R.id.memoBody)
-        //         val memoText = memoBody.text
-
-        //         bwriter.append(memoText)
-        //         bwriter.newLine()
-        //         bwriter.close()
-
-        //         // 書き込み完了のトースト表示
-        //         Toast.makeText(this@MainActivity, R.string.file_write_finished, Toast.LENGTH_LONG).show()
-        //         Log.d("WRITE PATH", _saveFileName)
-        //     }
-        // }
-
-        // ファイル保存処理
-        // 読み書き可能ならば保存
-        var writable = false
-        val state = Environment.getExternalStorageState()
-        if (Environment.MEDIA_MOUNTED.equals(state)) {
-            writable = true
-        } else {
-            // ストレージ読み書きの権限を求める
-            requestPermissionOfStorageReadWrite()
-            if (allowed_access_to_storage) {
-                writable = true
+                _saveFileUri?.let {
+                    contentResolver.query(it, null, null, null, null)
+                }?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    _saveFileName = cursor.getString(nameIndex)
+                }
             }
         }
 
-        if (writable) {
-            val bwriter = BufferedWriter(FileWriter(_saveFileName, false))
+        // ファイル保存処理（Uri）
+        _saveFileUri?.let {
+            val file = it.path?.let { it1 -> File(it1) }
+
+            val bwriter = BufferedWriter(FileWriter(file, false))
             val memoBody = findViewById<EditText>(R.id.memoBody)
             val memoText = memoBody.text
 
@@ -361,46 +375,68 @@ class MainActivity : AppCompatActivity() {
             bwriter.close()
 
             // 書き込み完了のトースト表示
-            Toast.makeText(this@MainActivity, R.string.file_write_finished, Toast.LENGTH_LONG).show()
-            Log.d("WRITE PATH", _saveFileName)
-        } else {
-            // ストレージアクセス権限がない旨のトースト表示
-            Toast.makeText(this@MainActivity, R.string.file_access_not_allowed, Toast.LENGTH_LONG).show()
+            Toast.makeText(this@MainActivity, R.string.memo_export_finished, Toast.LENGTH_LONG).show()
         }
     }
 
-    // ファイルから読み込む
-    private fun loadMemoFromFile() {
-        // 将来対応：読み込み元ファイル名を設定できるようにする
-        if (_saveFileName.isEmpty()) {
-            // デフォルトのファイル名を生成
-            val path = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
-            // val nowDateTime = LocalDateTime.now()
-            // val formatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHMMSS")
-            // val dateTimeString = nowDateTime.format(formatter)
-            // _saveFileName = "${path}/${R.string.default_save_filename_prefix}_${dateTimeString}.txt"
-
-            _saveFileName = "${path}/${R.string.default_save_filename}"
-        }
-
-        // 将来対応：外部ストレージからのファイル読み込み
-
+    // デフォルトのファイル（バックアップ用）から読み込む
+    private fun loadMemoFromDefaultFile() {
         // ファイル読み込み処理
         // 読み書き可能ならば読み込み、カーソルを最終位置にセットする
         val state = Environment.getExternalStorageState()
-        val path = Paths.get(_saveFileName)
-        if (Environment.MEDIA_MOUNTED.equals(state) && Files.exists(path)) {
-            val breader = BufferedReader(FileReader(_saveFileName))
+        val dirpath = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
+        val filepath = dirpath + getString(R.string.default_save_filename)
+        if (Environment.MEDIA_MOUNTED == state && Files.exists(Paths.get(filepath))) {
+            val breader = BufferedReader(FileReader(filepath))
             val data = breader.readText()
             val memoBody = findViewById<EditText>(R.id.memoBody)
             memoBody.setText(data)
             memoBody.setSelection(memoBody.text.length)
 
             // 読み込み完了のトースト表示
-            Toast.makeText(this@MainActivity, R.string.file_read_finished, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, R.string.file_autoload_finished, Toast.LENGTH_SHORT).show()
+        } else {
+            // 読み込みができなかった旨のトースト表示
+            Toast.makeText(this@MainActivity, R.string.could_not_autoload, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // デフォルトのファイル（バックアップ用）への保存
+    private fun saveMemoToDefaultFile() {
+        // 読み書き可能であるかの判定
+        var writable = false
+        val state = Environment.getExternalStorageState()
+        if (Environment.MEDIA_MOUNTED == state) {
+            writable = true
+        } else {
+            // ストレージ読み書きの権限を求める
+            requestPermissionOfStorageReadWrite()
+            if (allowedAccessToStorage) {
+                writable = true
+            }
+        }
+
+        // 読み書き可能、かつ自動保存の必要があるかを判定
+        if (writable) {
+            if (memoModified) {
+                val path = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
+                val bwriter =
+                    BufferedWriter(FileWriter("${path}/${R.string.default_save_filename}", false))
+                val memoBody = findViewById<EditText>(R.id.memoBody)
+                val memoText = memoBody.text
+
+                bwriter.append(memoText)
+                bwriter.newLine()
+                bwriter.close()
+
+                // メモ本体のテキストボックス内容が更新されていない扱いとする
+                memoModified = false
+                // 書き込み完了のトースト表示
+                Toast.makeText(this@MainActivity, R.string.file_autosave_finished, Toast.LENGTH_LONG).show()
+            }
         } else {
             // ストレージアクセス権限がない旨のトースト表示
-            Toast.makeText(this@MainActivity, R.string.file_access_not_allowed, Toast.LENGTH_LONG).show()
+            Toast.makeText(this@MainActivity, R.string.could_not_autosave, Toast.LENGTH_SHORT).show()
         }
     }
 
