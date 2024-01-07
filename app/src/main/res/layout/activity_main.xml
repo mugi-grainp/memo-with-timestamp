@@ -1,30 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
+    style="@style/ActivityBackground"
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background"
     android:padding="16dp"
     android:orientation="vertical">
 
     <TextView
         android:id="@+id/nowDate"
+        style="@style/TextViewDefault"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="4dp"
-        android:background="#FFFFFF"
         android:text="@string/nowDateSampleText"
         android:textAlignment="center"
         android:textSize="32sp" />
 
     <TextView
         android:id="@+id/nowTime"
+        style="@style/TextViewDefault"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="4dp"
         android:layout_marginTop="4dp"
-        android:background="#FFFFFF"
         android:text="@string/nowTimeSampleText"
         android:textAlignment="center"
         android:textSize="56sp" />
@@ -36,6 +36,7 @@
 
         <CheckBox
             android:id="@+id/gpsEnable"
+            style="@style/TextViewDefault"
             android:layout_width="wrap_content"
             android:layout_height="48dp"
             android:text="@string/gps_enable"
@@ -46,6 +47,7 @@
 
         <TextView
             android:id="@+id/nowLatitudeType"
+            style="@style/TextViewDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
@@ -56,6 +58,7 @@
 
         <TextView
             android:id="@+id/nowLatitude"
+            style="@style/TextViewDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
@@ -63,7 +66,6 @@
             android:layout_marginStart="4dp"
             android:layout_gravity="center"
             android:layout_weight="1"
-            android:background="#FFFFFF"
             android:text="@string/latitudeSampleText"
             android:gravity="end"
             android:textSize="20sp" />
@@ -75,6 +77,7 @@
 
         <TextView
             android:id="@+id/nowLongitudeType"
+            style="@style/TextViewDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
@@ -85,6 +88,7 @@
 
         <TextView
             android:id="@+id/nowLongitude"
+            style="@style/TextViewDefault"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="4dp"
@@ -92,7 +96,6 @@
             android:layout_marginStart="4dp"
             android:layout_gravity="center"
             android:layout_weight="1"
-            android:background="#FFFFFF"
             android:text="@string/longitudeSampleText"
             android:gravity="end"
             android:textSize="20sp" />
@@ -140,11 +143,11 @@
 
     <EditText
         android:id="@+id/memoBody"
+        style="@style/EditTextDefault"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="4dp"
         android:layout_weight="1"
-        android:background="#FFFFFF"
         android:gravity="top|start"
         android:hint="@string/memo_body_placeholder"
         android:importantForAutofill="no"

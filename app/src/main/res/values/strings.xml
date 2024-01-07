@@ -5,9 +5,9 @@
     <string name="gps_enable">位置</string>
     <string name="map_view">現在位置を地図アプリで表示</string>
     <string name="latitudeTypeSampleText">緯度: </string>
-    <string name="latitudeSampleText">00.00000</string>
+    <string name="latitudeSampleText">0.00000</string>
     <string name="longitudeTypeSampleText">経度: </string>
-    <string name="longitudeSampleText">000.00000</string>
+    <string name="longitudeSampleText">0.00000</string>
     <string name="btn_inserttimestamp">日時を挿入</string>
     <string name="btn_insertpos">位置情報を挿入</string>
     <string name="btn_save">メモを保存</string>
