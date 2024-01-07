@@ -375,7 +375,6 @@ class MainActivity : AppCompatActivity() {
                 val memoBody = findViewById<EditText>(R.id.memoBody)
                 val memoText = memoBody.text
                 writer.append(memoText)
-                writer.newLine()
 
                 // 書き込み完了のトースト表示
                 Toast.makeText(this@MainActivity, R.string.memo_export_finished, Toast.LENGTH_LONG).show()
@@ -435,7 +434,6 @@ class MainActivity : AppCompatActivity() {
                 val memoText = memoBody.text
 
                 bwriter.append(memoText)
-                bwriter.newLine()
                 bwriter.close()
 
                 // メモ本体のテキストボックス内容が更新されていない扱いとする
