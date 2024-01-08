@@ -11,6 +11,8 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
 import android.widget.Button
@@ -22,7 +24,6 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.widget.doAfterTextChanged
-import androidx.fragment.app.DialogFragment
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -31,9 +32,10 @@ import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import java.io.BufferedReader
 import java.io.BufferedWriter
+import java.io.FileOutputStream
 import java.io.FileReader
 import java.io.FileWriter
-import java.io.OutputStreamWriter
+import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Paths
 import java.time.LocalDateTime
@@ -78,7 +80,7 @@ class MainActivity : AppCompatActivity() {
     // メモ本体の入力ボックステキストが更新されたか
     private var memoModified = false
 
-    // メモ保存先のUri取得（ファイル新規作成）
+    // メモ保存先のUri取得（名前を付けて保存）
     private val newFileSaveLauncher : ActivityResultLauncher<Intent> = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -89,6 +91,37 @@ class MainActivity : AppCompatActivity() {
             savefilePath?.let {
                 exportMemoToFile(it)
                 _saveFileUri = it
+                // 上書きエクスポートボタンの有効化
+                val btnOverwriteExport = findViewById<Button>(R.id.btnOverwriteExport)
+                btnOverwriteExport.isEnabled = true
+                btnOverwriteExport.setBackgroundColor(getColor(R.color.red))
+            }
+        }
+    }
+
+    // メモ保存先のUri取得（既存ファイル選択）
+    private val alreadyExistsFileSaveLauncher : ActivityResultLauncher<Intent> = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val resultUriIntent = result.data
+            val savefilePath = resultUriIntent?.data
+
+            savefilePath?.let { uri ->
+                _saveFileUri = uri
+
+                // ファイル名をUriから取り出して反映
+                val contentResolver = applicationContext.contentResolver
+                val projection = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME)
+                val cursor = contentResolver.query(uri, projection, null, null, null)
+                if (cursor != null && cursor.moveToFirst()) {
+                    val name = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    _saveFileName = cursor.getString(name)
+                }
+
+                // ファイルを読み込む
+                loadMemoFromFile(uri)
+
                 // 上書きエクスポートボタンの有効化
                 val btnOverwriteExport = findViewById<Button>(R.id.btnOverwriteExport)
                 btnOverwriteExport.isEnabled = true
@@ -138,6 +171,7 @@ class MainActivity : AppCompatActivity() {
         val btnInsertTimestamp = findViewById<Button>(R.id.btnInsertTimestamp)
         val btnInsertPos = findViewById<Button>(R.id.btnInsertPos)
         val btnNewExport = findViewById<Button>(R.id.btnNewExport)
+        val btnLoadFile = findViewById<Button>(R.id.btnLoadFile)
         val btnOverwriteExport = findViewById<Button>(R.id.btnOverwriteExport)
         val btnMapView = findViewById<Button>(R.id.btnViewCurrentPosOnMap)
         val buttonListener = ButtonListener()
@@ -145,6 +179,7 @@ class MainActivity : AppCompatActivity() {
         btnInsertTimestamp.setOnClickListener(buttonListener)
         btnInsertPos.setOnClickListener(buttonListener)
         btnNewExport.setOnClickListener(buttonListener)
+        btnLoadFile.setOnClickListener(buttonListener)
         btnOverwriteExport.setOnClickListener(buttonListener)
         btnMapView.setOnClickListener(buttonListener)
 
@@ -206,6 +241,9 @@ class MainActivity : AppCompatActivity() {
                 R.id.btnNewExport -> {
                     selectAndExportMemoToFile()
                 }
+                R.id.btnLoadFile -> {
+                    selectAndLoadAlreadyExistsExportFile()
+                }
                 R.id.btnOverwriteExport -> {
                     _saveFileUri?.let { uri -> exportMemoToFile(uri) }
                 }
@@ -230,7 +268,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
 
     // 画面の日付・時刻表示を更新
     private fun getAndViewDateTimeText() {
@@ -353,6 +390,15 @@ class MainActivity : AppCompatActivity() {
         startActivity(intent)
     }
 
+    // ファイルを開く（既存ファイル）
+    private fun selectAndLoadAlreadyExistsExportFile() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        intent.addCategory(Intent.CATEGORY_OPENABLE)
+        intent.type = "text/plain"
+
+        alreadyExistsFileSaveLauncher.launch(intent)
+    }
+
     // エクスポート先を選択し、メモを書き出す（新規作成）
     private fun selectAndExportMemoToFile() {
         // デフォルトのファイル名を生成
@@ -373,11 +419,11 @@ class MainActivity : AppCompatActivity() {
     private fun exportMemoToFile(fileUri : Uri) {
         val contentResolver = applicationContext.contentResolver
         try {
-            contentResolver.openOutputStream(fileUri)?.use { outputStream ->
-                BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+            contentResolver.openFileDescriptor(fileUri, "w")?.use { f ->
+                FileOutputStream(f.fileDescriptor).use { writer ->
                     val memoBody = findViewById<EditText>(R.id.memoBody)
                     val memoText = memoBody.text
-                    writer.append(memoText)
+                    writer.write(memoText.toString().toByteArray())
 
                     // 書き込み完了のトースト表示
                     Toast.makeText(
@@ -393,7 +439,44 @@ class MainActivity : AppCompatActivity() {
             AlertDialog.Builder(this@MainActivity)
                 .setTitle(R.string.error_dialog_export_failed_title)
                 .setMessage(R.string.error_dialog_export_failed_message)
-                .setPositiveButton("OK") { dialog, which -> }
+                .setPositiveButton("OK") { _, _ -> }
+                .show()
+        }
+    }
+
+    // 選択したファイルから読み込む
+    private fun loadMemoFromFile(fileUri : Uri) {
+        val contentResolver = applicationContext.contentResolver
+        try {
+            contentResolver.openInputStream(fileUri)?.use { inputStream ->
+                BufferedReader(InputStreamReader(inputStream)).use { reader ->
+                    val text = reader.readText()
+                    val memoBody = findViewById<EditText>(R.id.memoBody)
+                    memoBody.setText(text)
+
+                    if (memoBody.text.isNotEmpty()) {
+                        memoBody.setSelection(memoBody.text.length - 1)
+                    }
+
+                    // テキストボックスへデータを入れた時に変更済みイベントが発生するが、
+                    // メモ本体のテキストボックス内容が更新されていない扱いとする
+                    memoModified = false
+
+                    // 読み込み完了のトースト表示
+                    Toast.makeText(
+                        this@MainActivity,
+                        R.string.file_load_finished,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        } catch (e: Exception) {
+            // ファイル読み込み時に例外が発生したら読み込みができなかった旨のダイアログ表示
+            Log.d("loadMemoFromFile()", e.toString())
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.error_dialog_load_file_failed_title)
+                .setMessage(R.string.error_dialog_load_file_failed_message)
+                .setPositiveButton("OK") { _, _ -> }
                 .show()
         }
     }

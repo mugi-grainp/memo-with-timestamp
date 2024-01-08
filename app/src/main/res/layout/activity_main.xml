@@ -13,21 +13,18 @@
         style="@style/TextViewDefault"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
         android:text="@string/nowDateSampleText"
         android:textAlignment="center"
-        android:textSize="32sp" />
+        android:textSize="28sp" />
 
     <TextView
         android:id="@+id/nowTime"
         style="@style/TextViewDefault"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="4dp"
-        android:layout_marginTop="4dp"
         android:text="@string/nowTimeSampleText"
         android:textAlignment="center"
-        android:textSize="56sp" />
+        android:textSize="48sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -110,6 +107,15 @@
         android:textSize="18sp"
         tools:ignore="VisualLintButtonSize" />
 
+    <Button
+        android:id="@+id/btnLoadFile"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="2dp"
+        android:text="@string/btn_load_file"
+        android:backgroundTint="@color/royalblue"
+        android:textSize="18sp"
+        tools:ignore="VisualLintButtonSize" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -171,7 +177,7 @@
             android:backgroundTint="@color/royalblue"
             android:text="@string/btn_new_export"
             android:textColor="#FFF8E1"
-            android:textSize="15sp"
+            android:textSize="18sp"
             tools:ignore="VisualLintButtonSize" />
 
         <Button
@@ -185,8 +191,9 @@
             android:backgroundTint="@color/red"
             android:text="@string/btn_overwrite_export"
             android:textColor="@color/white"
-            android:textSize="15sp"
+            android:textSize="18sp"
             tools:ignore="TextContrastCheck,VisualLintButtonSize" />
+
     </LinearLayout>
 
 </LinearLayout>
