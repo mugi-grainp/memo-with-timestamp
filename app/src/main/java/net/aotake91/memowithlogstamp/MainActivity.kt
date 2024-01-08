@@ -2,6 +2,7 @@ package net.aotake91.memowithlogstamp
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -10,6 +11,7 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -20,6 +22,7 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.widget.doAfterTextChanged
+import androidx.fragment.app.DialogFragment
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -366,19 +369,32 @@ class MainActivity : AppCompatActivity() {
         newFileSaveLauncher.launch(intent)
     }
 
-    // ファイルに保存する
+    // ファイルに保存する（他のアプリと共有できるストレージへのエクスポート）
     private fun exportMemoToFile(fileUri : Uri) {
         val contentResolver = applicationContext.contentResolver
+        try {
+            contentResolver.openOutputStream(fileUri)?.use { outputStream ->
+                BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+                    val memoBody = findViewById<EditText>(R.id.memoBody)
+                    val memoText = memoBody.text
+                    writer.append(memoText)
 
-        contentResolver.openOutputStream(fileUri)?.use { outputStream ->
-            BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
-                val memoBody = findViewById<EditText>(R.id.memoBody)
-                val memoText = memoBody.text
-                writer.append(memoText)
-
-                // 書き込み完了のトースト表示
-                Toast.makeText(this@MainActivity, R.string.memo_export_finished, Toast.LENGTH_LONG).show()
+                    // 書き込み完了のトースト表示
+                    Toast.makeText(
+                        this@MainActivity,
+                        R.string.memo_export_finished,
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
             }
+        } catch (e: Exception) {
+            // エクスポートに失敗した場合はその旨のダイアログボックスを表示する
+            Log.d("exportMemoToFile()", e.toString())
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.error_dialog_export_failed_title)
+                .setMessage(R.string.error_dialog_export_failed_message)
+                .setPositiveButton("OK") { dialog, which -> }
+                .show()
         }
     }
 
@@ -386,25 +402,43 @@ class MainActivity : AppCompatActivity() {
     private fun loadMemoFromDefaultFile() {
         // ファイル読み込み処理
         // 読み書き可能ならば読み込み、カーソルを最終位置にセットする
-        val state = Environment.getExternalStorageState()
-        val dirpath = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
-        val filepath = dirpath + getString(R.string.default_save_filename)
-        if (Environment.MEDIA_MOUNTED == state && Files.exists(Paths.get(filepath))) {
-            val breader = BufferedReader(FileReader(filepath))
-            val data = breader.readText()
-            val memoBody = findViewById<EditText>(R.id.memoBody)
-            memoBody.setText(data)
-            memoBody.setSelection(memoBody.text.length - 1)
+        try {
+            val state = Environment.getExternalStorageState()
+            val dirpath = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
+            val filepath = dirpath + getString(R.string.default_save_filename)
 
-            // テキストボックスへデータを入れた時に変更済みイベントが発生するが、
-            // メモ本体のテキストボックス内容が更新されていない扱いとする
-            memoModified = false
+            if (Environment.MEDIA_MOUNTED == state && Files.exists(Paths.get(filepath))) {
+                BufferedReader(FileReader(filepath)).use { reader ->
+                    val data = reader.readText()
+                    val memoBody = findViewById<EditText>(R.id.memoBody)
+                    memoBody.setText(data)
 
-            // 読み込み完了のトースト表示
-            Toast.makeText(this@MainActivity, R.string.file_autoload_finished, Toast.LENGTH_SHORT).show()
-        } else {
+                    if (memoBody.text.isNotEmpty()) {
+                        memoBody.setSelection(memoBody.text.length - 1)
+                    }
+
+                    // テキストボックスへデータを入れた時に変更済みイベントが発生するが、
+                    // メモ本体のテキストボックス内容が更新されていない扱いとする
+                    memoModified = false
+
+                    // 読み込み完了のトースト表示
+                    Toast.makeText(
+                        this@MainActivity,
+                        R.string.file_autoload_finished,
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            } else {
+                // 読み込みができなかった旨のトースト表示
+                Toast.makeText(this@MainActivity, R.string.could_not_autoload, Toast.LENGTH_SHORT)
+                    .show()
+            }
+        } catch (e : Exception) {
+            // ファイル読み込み時に例外が発生したら単に読み込まず進む
+            Log.d("loadMemoFromDefaultFile()", e.toString())
             // 読み込みができなかった旨のトースト表示
-            Toast.makeText(this@MainActivity, R.string.could_not_autoload, Toast.LENGTH_SHORT).show()
+            Toast.makeText(this@MainActivity, R.string.could_not_autoload, Toast.LENGTH_SHORT)
+                .show()
         }
     }
 
@@ -426,23 +460,29 @@ class MainActivity : AppCompatActivity() {
         // 読み書き可能、かつ自動保存の必要があるかを判定
         if (writable) {
             if (memoModified) {
-                val dirpath = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
-                val filepath = dirpath + getString(R.string.default_save_filename)
-                val bwriter =
-                    BufferedWriter(FileWriter(filepath, false))
-                val memoBody = findViewById<EditText>(R.id.memoBody)
-                val memoText = memoBody.text
+                try {
+                    val dirpath = getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS).toString()
+                    val filepath = dirpath + getString(R.string.default_save_filename)
 
-                bwriter.append(memoText)
-                bwriter.close()
+                    BufferedWriter(FileWriter(filepath, false)).use { writer ->
+                        val memoBody = findViewById<EditText>(R.id.memoBody)
+                        val memoText = memoBody.text
 
-                // メモ本体のテキストボックス内容が更新されていない扱いとする
-                memoModified = false
-                // 書き込み完了のトースト表示
-                // Toast.makeText(this@MainActivity, R.string.file_autosave_finished, Toast.LENGTH_LONG).show()
+                        writer.append(memoText)
+
+                        // メモ本体のテキストボックス内容が更新されていない扱いとする
+                        memoModified = false
+                    }
+                } catch (e : Exception) {
+                    // 自動保存時に例外が発生したら保存をせずに単に進む
+                    Log.d("saveMemoFromDefaultFile()", e.toString())
+                    // 読み込みができなかった旨のトースト表示
+                    Toast.makeText(this@MainActivity, R.string.could_not_autosave, Toast.LENGTH_SHORT)
+                        .show()
+                }
             }
         } else {
-            // ストレージアクセス権限がない旨のトースト表示
+            // 自動保存ができなかった旨のトースト表示
             Toast.makeText(this@MainActivity, R.string.could_not_autosave, Toast.LENGTH_SHORT).show()
         }
     }

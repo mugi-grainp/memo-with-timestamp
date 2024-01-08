@@ -24,4 +24,7 @@
     <string name="could_not_autoload">自動保存ファイルからの読み込みができませんでした。</string>
     <string name="could_not_autosave">自動保存ができませんでした。</string>
     <string name="memo_body_placeholder">メモを入力&#8230;</string>
+
+    <string name="error_dialog_export_failed_title">エクスポートできませんでした</string>
+    <string name="error_dialog_export_failed_message">指定したファイルにエクスポートできませんでした。</string>
 </resources>
