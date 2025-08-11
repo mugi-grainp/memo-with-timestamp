@@ -1,7 +1,6 @@
 package net.aotake91.memowithlogstamp
 
 import android.Manifest
-import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -16,10 +15,10 @@ import android.provider.OpenableColumns
 import android.util.Log
 import android.view.View
 import android.widget.Button
-import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ToggleButton
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
@@ -40,6 +39,8 @@ import java.nio.file.Files
 import java.nio.file.Paths
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import androidx.core.net.toUri
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
 
@@ -84,7 +85,7 @@ class MainActivity : AppCompatActivity() {
     private val newFileSaveLauncher : ActivityResultLauncher<Intent> = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == RESULT_OK) {
             val resultUriIntent = result.data
             val savefilePath = resultUriIntent?.data
 
@@ -103,7 +104,7 @@ class MainActivity : AppCompatActivity() {
     private val alreadyExistsFileSaveLauncher : ActivityResultLauncher<Intent> = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == RESULT_OK) {
             val resultUriIntent = result.data
             val savefilePath = resultUriIntent?.data
 
@@ -141,8 +142,8 @@ class MainActivity : AppCompatActivity() {
                 // 緯度・経度をTextViewに表示
                 val lat = findViewById<TextView>(R.id.nowLatitude)
                 val lng = findViewById<TextView>(R.id.nowLongitude)
-                lat.text = String.format("%.5f", _latitude)
-                lng.text = String.format("%.5f", _longitude)
+                lat.text = String.format(Locale.US, "%.5f", _latitude)
+                lng.text = String.format(Locale.US, "%.5f", _longitude)
             }
         }
     }
@@ -187,10 +188,10 @@ class MainActivity : AppCompatActivity() {
         btnOverwriteExport.isEnabled = false
         btnOverwriteExport.setBackgroundColor(getColor(R.color.gray))
 
-        // チェックボックスにイベントリスナを登録
-        val chkGPSEnable = findViewById<CheckBox>(R.id.gpsEnable)
-        val checkBoxListener = CheckBoxListener()
-        chkGPSEnable.setOnClickListener(checkBoxListener)
+        // 位置情報計測ボタンにイベントリスナを登録
+        val gpsEnableToggleButton = findViewById<ToggleButton>(R.id.gpsEnable)
+        val toggleButtonListener = ToggleButtonListener()
+        gpsEnableToggleButton.setOnClickListener(toggleButtonListener)
 
         // ストレージアクセス許可の確認（権限リクエスト）
         requestPermissionOfStorageReadWrite()
@@ -203,9 +204,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        val gpsEnableCheckBox = findViewById<CheckBox>(R.id.gpsEnable)
+        val gpsEnableToggleButton = findViewById<ToggleButton>(R.id.gpsEnable)
         // 位置情報計測が有効化されている場合
-        if (gpsEnableCheckBox.isChecked) {
+        if (gpsEnableToggleButton.isChecked) {
             // 位置情報利用の再開（許可されていない場合は再度許可を求める）
             requestPermissionOfLocation()
         }
@@ -233,7 +234,7 @@ class MainActivity : AppCompatActivity() {
                     memoBody.text.insert(memoBodyCursorEnd, dateTimeText)
                 }
                 R.id.btnInsertPos -> {
-                    val posText = String.format("(%.5f, %.5f)\n", _latitude, _longitude)
+                    val posText = String.format(Locale.US, "(%.5f, %.5f)\n", _latitude, _longitude)
                     val memoBody = findViewById<EditText>(R.id.memoBody)
                     val memoBodyCursorEnd = memoBody.selectionEnd
                     memoBody.text.insert(memoBodyCursorEnd, posText)
@@ -251,13 +252,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // チェックボックスのイベントリスナ
-    private inner class CheckBoxListener : View.OnClickListener {
+    // 位置情報取得切替ボタンのイベントリスナ
+    private inner class ToggleButtonListener : View.OnClickListener {
         override fun onClick(v: View) {
             when (v.id) {
                R.id.gpsEnable -> {
-                   val checkBox = findViewById<CheckBox>(R.id.gpsEnable)
-                   if (checkBox.isChecked) {
+                   val toggleButton = findViewById<ToggleButton>(R.id.gpsEnable)
+                   if (toggleButton.isChecked) {
                        // 位置情報利用の許可をユーザに求める
                        requestPermissionOfLocation()
                    } else {
@@ -349,8 +350,8 @@ class MainActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                     // チェックボックスを未チェック状態に設定
-                    val gpsCheckBox = findViewById<CheckBox>(R.id.gpsEnable)
-                    gpsCheckBox.isChecked = false
+                    val gpsEnableToggleButton = findViewById<ToggleButton>(R.id.gpsEnable)
+                    gpsEnableToggleButton.isChecked = false
                     return
                 }
 
@@ -368,8 +369,8 @@ class MainActivity : AppCompatActivity() {
                     Toast.LENGTH_SHORT
                 ).show()
                 // チェックボックスを未チェック状態に設定
-                val gpsCheckBox = findViewById<CheckBox>(R.id.gpsEnable)
-                gpsCheckBox.isChecked = false
+                val gpsEnableToggleButton = findViewById<ToggleButton>(R.id.gpsEnable)
+                gpsEnableToggleButton.isChecked = false
                 return
             }
         } else if (requestCode == 1010) {
@@ -384,7 +385,7 @@ class MainActivity : AppCompatActivity() {
     // 現在位置を地図で表示（暗黙的インテント）
     private fun onViewCurrentPosOnMapButtonClick() {
         val uriStr = "geo:${_latitude},${_longitude}"
-        val uri = Uri.parse(uriStr)
+        val uri = uriStr.toUri()
         val intent = Intent(Intent.ACTION_VIEW, uri)
 
         startActivity(intent)

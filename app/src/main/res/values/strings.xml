@@ -3,8 +3,9 @@
     <string name="nowDateSampleText">2024.01.03 (水)</string>
     <string name="nowTimeSampleText">21:50:00</string>
 
-    <string name="gps_enable">位置</string>
-    <string name="map_view">現在位置を地図アプリで表示</string>
+    <string name="blankstring"> </string>
+
+    <string name="map_view">地図</string>
     <string name="latitudeTypeSampleText">緯度: </string>
     <string name="latitudeSampleText">0.00000</string>
     <string name="longitudeTypeSampleText">経度: </string>
@@ -13,10 +14,10 @@
     <string name="btn_inserttimestamp">日時を挿入</string>
     <string name="btn_insertpos">位置情報を挿入</string>
     <string name="btn_save">メモを保存</string>
-    <string name="btn_new_export">名前を付けて保存&#8230;</string>
-    <string name="btn_load_file">ファイルから読み込み&#8230;</string>
+    <string name="btn_new_export">別名で保存</string>
+    <string name="btn_load_file">読み込み</string>
     <string name="btn_select_export_file">ファイル選択&#8230;</string>
-    <string name="btn_overwrite_export">上書き保存</string>
+    <string name="btn_overwrite_export">保存</string>
 
     <string name="location_access_not_permitted">位置情報の利用が許可されていません</string>
     <string name="file_load_finished">ファイルから読み込みました。</string>
